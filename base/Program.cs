@@ -9,15 +9,21 @@ using baseApp.Data;
 using System.Security.Claims;
 using baseApp.Models;
 using Microsoft.AspNetCore.Identity;
+using baseApp.Middleware;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configurar EF Core con MySQL
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
     options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
-    ));
+        connectionString,
+        ServerVersion.AutoDetect(connectionString)
+    );
+});
 
 // Servicios personalizados
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -95,6 +101,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<RefreshTokenLoggingMiddleware>();
 
 app.MapControllers();
 
