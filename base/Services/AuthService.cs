@@ -6,18 +6,21 @@ using baseApp.Data;
 using baseApp.Interfaces;
 using baseApp.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 
 public class AuthService : IAuthService
 {
     private readonly AppDbContext _context;
     private readonly ITokenService _tokenService;
     private readonly IPasswordHasher<User> _hasher;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public AuthService(AppDbContext context, ITokenService tokenService)
+    public AuthService(AppDbContext context, ITokenService tokenService, IHttpContextAccessor httpContextAccessor)
     {
         _context = context;
         _tokenService = tokenService;
         _hasher = new PasswordHasher<User>();
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<string> RegisterAsync(string email, string password, string fullName)
@@ -77,6 +80,16 @@ public class AuthService : IAuthService
         });
 
         await _context.SaveChangesAsync();
+
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,  
+            Secure = false,    // true solo para HTTPS
+            Expires = DateTime.UtcNow.AddDays(7)
+        };
+
+        _httpContextAccessor.HttpContext.Response.Cookies.Append("refreshToken", refresh, cookieOptions);
+
         return (jwt, refresh);
     }
 
@@ -101,6 +114,16 @@ public class AuthService : IAuthService
 
         await _context.SaveChangesAsync();
         var jwt = _tokenService.GenerateToken(token.User);
+
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = false,    // true solo para HTTPS
+            Expires = DateTime.UtcNow.AddDays(7)
+        };
+
+        _httpContextAccessor.HttpContext.Response.Cookies.Append("refreshToken", newRefresh, cookieOptions);
+
         return (jwt, newRefresh);
     }
 
@@ -119,6 +142,8 @@ public class AuthService : IAuthService
         token.IsRevoked = true;
 
         await _context.SaveChangesAsync();
+
+        _httpContextAccessor.HttpContext.Response.Cookies.Delete("refreshToken");
 
         return new NoContentResult(); // Devuelve 204 No Content si todo va bien
     }

@@ -84,6 +84,7 @@ builder.Services.AddAuthentication("Bearer")
         };
     });
 
+builder.Services.AddHttpContextAccessor();  // Para acceder a HttpContext en cualquier parte
 
 builder.Services.AddAuthorization(options =>
 {
